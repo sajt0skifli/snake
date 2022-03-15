@@ -6,9 +6,10 @@ using namespace genv;
 using namespace std;
 
 const int w=500,h=500,
-          blocksize=20, //grid nÈgyzet mÈrete (pixelben)
-          falvastag=2,  //p·lyaszÈli fal vastags·ga (blockban)
-          beltav=4;     //belsı fal oldalfaltÛl valÛ t·vols·ga (blockban)
+          blocksize=20, //r√°cs n√©gyzet m√©rete (pixelben) - text√∫r√°k 20 eset√©re tervezve, nem √©rdemes megv√°ltoztatni
+          falvastag=2,  //p√°lyasz√©li oldalfal vastags√°ga (blockban)
+          beltav=4,     //belso fal oldalfalt√≥l val√≥ t√°vols√°ga (blockban)
+          almatime=7;   //alma l√©trehoz√°s√°nak gyakoris√°ga (l√©p√©sben) (pl.: megev√©st≈ël sz√°m√≠tott 7. l√©p√©sn√©l)
 
 struct pont
 {
@@ -67,7 +68,7 @@ struct Racs
             for(int j=0;j<grid[i].size();j++)
             {
                 if(i<falvastag || j<falvastag || i>grid.size()-falvastag-1 || j>grid[i].size()-falvastag-1 ||  //oldalfalak
-                   (i==falvastag+beltav && j>=falvastag+beltav && j<=grid[i].size()-(falvastag+beltav)-1) || (j==grid[i].size()/2 && i>=falvastag+beltav && i<=grid.size()-(falvastag+beltav)-1))    //belsı fal
+                   (i==falvastag+beltav && j>=falvastag+beltav && j<=grid[i].size()-(falvastag+beltav)-1) || (j==grid[i].size()/2 && i>=falvastag+beltav && i<=grid.size()-(falvastag+beltav)-1))    //bels√µ fal
                 {
                     grid[i][j].status='f';
                 }
@@ -75,7 +76,7 @@ struct Racs
         }
     }
 
-    void hatter(canvas &hatter)
+    void hatter(canvas &hatter, canvas fu, canvas fal)
     {
         for(int i=0;i<grid.size();i++)
         {
@@ -83,13 +84,12 @@ struct Racs
             {
                 if(grid[i][j].status=='f')
                 {
-                    hatter << color(100,100,100);
+                    hatter << stamp(fal,grid[i][j].koord.x,grid[i][j].koord.y);
                 }
                 else
                 {
-                    hatter << color(0,200,0);
+                    hatter << stamp(fu,grid[i][j].koord.x,grid[i][j].koord.y);
                 }
-                hatter << move_to(grid[i][j].koord.x,grid[i][j].koord.y) << box(blocksize,blocksize);
             }
         }
     }
@@ -136,28 +136,42 @@ struct Racs
         }
     }
 
-    bool utkoz(pont fejpoz, char irany)
+    char detect(pont fejpoz, char irany)
     {
+        block* nextblock;
+        bool volt=false;
         for(int i=0;i<grid.size();i++)
         {
             for(int j=0;j<grid[i].size();j++)
             {
-                if(grid[i][j].koord==fejpoz)
+                if(grid[i][j].koord==fejpoz && !volt)
                 {
-                    if((irany=='j' && (grid[i][j+1].status=='f' || grid[i][j+1].status=='t')) ||
-                       (irany=='f' && (grid[i-1][j].status=='f' || grid[i-1][j].status=='t')) ||
-                       (irany=='l' && (grid[i+1][j].status=='f' || grid[i+1][j].status=='t')) ||
-                       (irany=='b' && (grid[i][j-1].status=='f' || grid[i][j-1].status=='t')))
+                    if(irany=='j')
                     {
-                        return true;
+                        nextblock=&grid[i][j+1];
+                    }
+                    else if(irany=='f')
+                    {
+                        nextblock=&grid[i-1][j];
+                    }
+                    else if(irany=='l')
+                    {
+                        nextblock=&grid[i+1][j];
                     }
                     else
                     {
-                        return false;
+                        nextblock=&grid[i][j-1];
                     }
+                    volt=true;
                 }
             }
         }
+        if(nextblock->status=='a')
+        {
+            nextblock->status='s';
+            return 'a';
+        }
+        return nextblock->status;
     }
 
     void ghostmode(canvas c)
@@ -172,6 +186,18 @@ struct Racs
                 }
             }
         }
+    }
+
+    pont almakoord()
+    {
+        int i=rand()%grid.size(),j=rand()%grid[0].size();
+        while(grid[i][j].status!='s')
+        {
+            i=rand()%grid.size();
+            j=rand()%grid[0].size();
+        }
+        grid[i][j].status='a';
+        return grid[i][j].koord;
     }
 };
 
@@ -273,6 +299,39 @@ struct Test
     }
 };
 
+struct Alma
+{
+    private:
+        pont koord;
+        canvas textura;
+        bool palyan=false;
+
+    public:
+    Alma(canvas c)
+    {
+        textura=c;
+    }
+
+    void rajzol()
+    {
+        if(palyan)
+        {
+            gout << stamp(textura,koord.x,koord.y);
+        }
+    }
+
+    void makealma(pont bekoord)
+    {
+        koord=bekoord;
+        palyan=true;
+    }
+
+    void megesz()
+    {
+        palyan=false;
+    }
+};
+
 void import(ifstream &be, string fajl, canvas &c)
 {
     vector<vector<szin>> kep;
@@ -292,46 +351,53 @@ void import(ifstream &be, string fajl, canvas &c)
     be.close();
 }
 
-void rajzol(canvas hatter, Fej fej, vector<Test*> testek)
+void rajzol(canvas hatter, Fej fej, vector<Test*> testek, Alma alma)
 {
     gout << stamp(hatter,0,0);
     for(int i=0;i<testek.size();i++)
     {
         testek[i]->rajzol();
     }
+    alma.rajzol();
     fej.rajzol();
 }
 
 int main()
 {
     ifstream be;
-    canvas hatter,fejle,fejfel,fejjobb,fejbal,fejdead,test;
+    canvas hatter,fejle,fejfel,fejjobb,fejbal,fejdead,test,fal,fu,almatex;
     Racs racs;
     bool gamestart=false, gameover=false;
-    char inputirany='j';
+    char inputirany='j', fejstatus;
+    int almakor=0;
     gout.open(w,h);
-
-    hatter.open(w,h);                       //
-    racs.hatter(hatter);                    //   R·cs Ès h·ttÈr lÈtrehoz·sa
-    gout << stamp(hatter,0,0);              //
 
     import(be,"fej2le.kep",fejle);          //
     import(be,"fej2fel.kep",fejfel);        //
-    import(be,"fej2jobb.kep",fejjobb);      //   Text˙r·k
-    import(be,"fej2bal.kep",fejbal);        //  import·l·sa
-    import(be,"fej2dead.kep",fejdead);      //
+    import(be,"fej2jobb.kep",fejjobb);      //
+    import(be,"fej2bal.kep",fejbal);        //   Text√∫r√°k
+    import(be,"fej2dead.kep",fejdead);      //  import√°l√°sa
     import(be,"test.kep",test);             //
+    import(be,"fal.kep",fal);               //
+    import(be,"fu.kep",fu);                 //
+    import(be,"alma.kep",almatex);          //
 
-    vector<Test*> testek;                                                                           //
-    Fej fej(racs.xblockszam(),racs.yblockszam(),fejjobb);                                           //
-    fej.rajzol();                                                                                   //
-    testek.push_back(new Test(fej.pozicio().x-20,fej.pozicio().y,0,test));                          //  Fej Ès test
-    testek[0]->rajzol();                                                                            //  alap·llapota
-    testek.push_back(new Test(testek[0]->pozicio().x-20,testek[0]->pozicio().y,testek[0],test));    //
-    testek[1]-> rajzol();                                                                           //
-    gout << refresh;                                                                                //
+    hatter.open(w,h);                       //
+    racs.hatter(hatter,fu,fal);             //   R√°cs √©s h√°tt√©r l√©trehoz√°sa
+    gout << stamp(hatter,0,0);              //
 
-    gin.timer(500);
+    vector<Test*> testek;                                                                                  //
+    Fej fej(racs.xblockszam(),racs.yblockszam(),fejjobb);                                                  //
+    fej.rajzol();                                                                                          //
+    testek.push_back(new Test(fej.pozicio().x-blocksize,fej.pozicio().y,0,test));                          //  Fej √©s test
+    testek[0]->rajzol();                                                                                   //  alap√°llapota
+    testek.push_back(new Test(testek[0]->pozicio().x-blocksize,testek[0]->pozicio().y,testek[0],test));    //
+    testek[1]-> rajzol();                                                                                  //
+    gout << refresh;                                                                                       //
+
+    Alma alma(almatex);                     //Alma l√©trehoz√°sa
+
+    gin.timer(400);
     event ev;
     while(gin >> ev) {
         if(ev.type==ev_key && ev.keycode==key_escape)
@@ -342,6 +408,12 @@ int main()
         {
             if(ev.type==ev_timer)
             {
+                almakor++;
+                if(almakor==almatime)
+                {
+                    alma.makealma(racs.almakoord());
+                }
+
                 racs.testclear();
                 for(int i=testek.size()-1;i>=0;i--)
                 {
@@ -349,7 +421,8 @@ int main()
                     racs.testadd(testek[i]->pozicio());
                 }
 
-                if(racs.utkoz(fej.pozicio(),inputirany))
+                fejstatus=racs.detect(fej.pozicio(),inputirany);
+                if(fejstatus=='f' || fejstatus=='t')
                 {
                     fej.texreplace(fejdead);
                     gameover=true;
@@ -357,15 +430,22 @@ int main()
                 else
                 {
                     fej.mozog(inputirany);
+                    if(fejstatus=='a')
+                    {
+                        alma.megesz();
+                        testek.push_back(new Test(testek[testek.size()-1]->pozicio().x,testek[testek.size()-1]->pozicio().y,testek[testek.size()-1],test));
+                        almakor=0;
+                    }
                 }
 
-                rajzol(hatter,fej,testek);
+                rajzol(hatter,fej,testek,alma);
                 if(gameover)
                 {
                     racs.ghostmode(test);
                 }
                 gout << refresh;
             }
+
             else if(ev.type==ev_key)
             {
                 if(ev.keycode==key_right && fej.iranyker()!='b')
