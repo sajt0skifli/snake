@@ -1,15 +1,16 @@
 #include "graphics.hpp"
 #include <vector>
 #include <fstream>
+#include <sstream>
 
 using namespace genv;
 using namespace std;
 
-const int w=500,h=500,
-          blocksize=20, //rÃ¡cs nÃ©gyzet mÃ©rete (pixelben) - textÃºrÃ¡k 20 esetÃ©re tervezve, nem Ã©rdemes megvÃ¡ltoztatni
-          falvastag=2,  //pÃ¡lyaszÃ©li oldalfal vastagsÃ¡ga (blockban)
-          beltav=4,     //belso fal oldalfaltÃ³l valÃ³ tÃ¡volsÃ¡ga (blockban)
-          almatime=7;   //alma lÃ©trehozÃ¡sÃ¡nak gyakorisÃ¡ga (lÃ©pÃ©sben) (pl.: megevÃ©stÅ‘l szÃ¡mÃ­tott 7. lÃ©pÃ©snÃ©l)
+const int w=700,h=700,
+          blocksize=20, //rács négyzet mérete (pixelben) - a program 20 köré épült, ennek megváltoztatásával nem mûködik
+          falvastag=2,  //pályaszéli oldalfal vastagsága (blockban)
+          beltav=4,     //belso fal oldalfaltól való távolsága (blockban)
+          almatime=8;   //alma létrehozásának gyakorisága (lépésben) (pl.: megevéstõl számított 7. lépésben)
 
 struct pont
 {
@@ -351,8 +352,9 @@ void import(ifstream &be, string fajl, canvas &c)
     be.close();
 }
 
-void rajzol(canvas hatter, Fej fej, vector<Test*> testek, Alma alma)
+void rajzol(canvas hatter, Fej fej, vector<Test*> testek, Alma alma, int pontszam)
 {
+    stringstream ss;
     gout << stamp(hatter,0,0);
     for(int i=0;i<testek.size();i++)
     {
@@ -360,6 +362,8 @@ void rajzol(canvas hatter, Fej fej, vector<Test*> testek, Alma alma)
     }
     alma.rajzol();
     fej.rajzol();
+    ss << "Pontok: " << pontszam;
+    gout << color(0,255,0) << move_to((w/2)-gout.twidth(ss.str())/2,blocksize/2) << font("LiberationMono-Bold.ttf",20) << text(ss.str());
 }
 
 int main()
@@ -369,33 +373,34 @@ int main()
     Racs racs;
     bool gamestart=false, gameover=false;
     char inputirany='j', fejstatus;
-    int almakor=0;
+    int almakor=0,pontszam=0;
     gout.open(w,h);
 
     import(be,"fej2le.kep",fejle);          //
     import(be,"fej2fel.kep",fejfel);        //
     import(be,"fej2jobb.kep",fejjobb);      //
-    import(be,"fej2bal.kep",fejbal);        //   TextÃºrÃ¡k
-    import(be,"fej2dead.kep",fejdead);      //  importÃ¡lÃ¡sa
+    import(be,"fej2bal.kep",fejbal);        //   Textúrák
+    import(be,"fej2dead.kep",fejdead);      //  importálása
     import(be,"test.kep",test);             //
     import(be,"fal.kep",fal);               //
     import(be,"fu.kep",fu);                 //
     import(be,"alma.kep",almatex);          //
 
-    hatter.open(w,h);                       //
-    racs.hatter(hatter,fu,fal);             //   RÃ¡cs Ã©s hÃ¡ttÃ©r lÃ©trehozÃ¡sa
-    gout << stamp(hatter,0,0);              //
+    hatter.open(w,h);                                                                                       //
+    racs.hatter(hatter,fu,fal);                                                                             //   Rács és háttér
+    gout << stamp(hatter,0,0) << font("LiberationMono-Bold.ttf",20);                                        //     létrehozása
+    gout << color(0,255,0) << move_to((w/2)-gout.twidth("Pontok: 0")/2,blocksize/2) << text("Pontok: 0");   //
 
     vector<Test*> testek;                                                                                  //
     Fej fej(racs.xblockszam(),racs.yblockszam(),fejjobb);                                                  //
     fej.rajzol();                                                                                          //
-    testek.push_back(new Test(fej.pozicio().x-blocksize,fej.pozicio().y,0,test));                          //  Fej Ã©s test
-    testek[0]->rajzol();                                                                                   //  alapÃ¡llapota
+    testek.push_back(new Test(fej.pozicio().x-blocksize,fej.pozicio().y,0,test));                          //  Fej és test
+    testek[0]->rajzol();                                                                                   //  alapállapota
     testek.push_back(new Test(testek[0]->pozicio().x-blocksize,testek[0]->pozicio().y,testek[0],test));    //
     testek[1]-> rajzol();                                                                                  //
     gout << refresh;                                                                                       //
 
-    Alma alma(almatex);                     //Alma lÃ©trehozÃ¡sa
+    Alma alma(almatex);                     //Alma létrehozása
 
     gin.timer(400);
     event ev;
@@ -435,10 +440,11 @@ int main()
                         alma.megesz();
                         testek.push_back(new Test(testek[testek.size()-1]->pozicio().x,testek[testek.size()-1]->pozicio().y,testek[testek.size()-1],test));
                         almakor=0;
+                        pontszam+=100;
                     }
                 }
 
-                rajzol(hatter,fej,testek,alma);
+                rajzol(hatter,fej,testek,alma,pontszam);
                 if(gameover)
                 {
                     racs.ghostmode(test);
