@@ -1,0 +1,20 @@
+# depslib dependency file v1.0
+1647352548 source:c:\users\szentendrey péter\desktop\andris\snake\main.cpp
+	"graphics.hpp"
+	<vector>
+	<fstream>
+
+1647169342 c:\users\szentendrey péter\desktop\andris\snake\include\graphics.hpp
+	<string>
+	<vector>
+
+1647796867 source:c:\users\szentendrey\desktop\online oktatás\egyetem (oof)\bevprog\codeblocks\snake\main.cpp
+	"graphics.hpp"
+	<vector>
+	<fstream>
+	<sstream>
+
+1647169342 c:\users\szentendrey\desktop\online oktatás\egyetem (oof)\bevprog\codeblocks\snake\include\graphics.hpp
+	<string>
+	<vector>
+
